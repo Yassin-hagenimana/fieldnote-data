@@ -25,6 +25,6 @@ The two biggest risks are session theft and authorization regressions. This vers
 At 10x users, SQLite write contention and database-backed sessions would be the first pressure points; PostgreSQL, connection pooling, and an external session/cache store would address them. At 100x episodes, import throughput and analytics aggregation would hurt first. Composite indexes and bounded pagination are in place; next steps would be bulk import batches, cursor pagination, and daily analytics rollups. The median and other analytics aggregations now execute in the database rather than loading raw duration rows into Python.
 
 
-## Stretch choice
+## 4.4 Choose ONE stretch item (optional)
 
-**Deployment** was selected. `render.yaml` defines the API and frontend Docker services, the API health check, the Render HTTPS endpoints, and a persistent disk for the SQLite database. The deployment tradeoff is intentional: the disk-backed SQLite setup is suitable for a single-instance demonstration, while a production multi-instance deployment should move to managed PostgreSQL and store all secrets in Render environment variables.
+**Real-time** was selected: operators see request status changes and new requests appear live without refreshing, using server-sent events (SSE).

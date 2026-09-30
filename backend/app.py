@@ -1,3 +1,4 @@
+import asyncio
 import csv
 import hashlib
 import hmac
@@ -10,8 +11,9 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -155,6 +157,45 @@ def require_roles(*roles):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/events")
+async def events(request: Request, token: str = Query(""), last_event_id: str = Header("", alias="Last-Event-ID")):
+    connection = db()
+    user = connection.execute("SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND u.active=1 AND (s.expires_at IS NULL OR s.expires_at > ?)", (token.strip(), now())).fetchone()
+    if not user:
+        connection.close()
+        raise HTTPException(401, "Invalid session")
+    if last_event_id.strip():
+        try:
+            cursor = int(last_event_id)
+        except ValueError:
+            connection.close()
+            raise HTTPException(400, "Invalid Last-Event-ID")
+    else:
+        cursor = connection.execute("SELECT coalesce(max(id), 0) FROM status_history").fetchone()[0]
+    user_id = user["id"]
+    role = user["role"]
+    connection.close()
+
+    async def stream():
+        nonlocal cursor
+        while not await request.is_disconnected():
+            connection = db()
+            query = "SELECT h.id, h.request_id, h.to_status, h.changed_at, r.task_name, r.client_id FROM status_history h JOIN requests r ON r.id=h.request_id WHERE h.id>?"
+            params = [cursor]
+            if role == "client":
+                query += " AND r.client_id=?"
+                params.append(user_id)
+            rows = connection.execute(query + " ORDER BY h.id", params).fetchall()
+            connection.close()
+            for row in rows:
+                cursor = row["id"]
+                yield f"id: {cursor}\nevent: request_update\ndata: {json.dumps({k: row[k] for k in ('request_id', 'to_status', 'changed_at', 'task_name')})}\n\n"
+            yield ": keep-alive\n\n"
+            await asyncio.sleep(1)
+
+    return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.post("/auth/login")

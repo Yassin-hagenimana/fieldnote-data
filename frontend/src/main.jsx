@@ -152,6 +152,7 @@ function Empty({ children }) {
 
 function ClientView({ session, reload }) {
   const [requests, setRequests] = useState([]);
+  const [liveVersion, setLiveVersion] = useState(0);
   const [rejectingRequest, setRejectingRequest] = useState(null);
   const [rejectionNotes, setRejectionNotes] = useState("");
   const [form, setForm] = useState({
@@ -169,7 +170,16 @@ function ClientView({ session, reload }) {
   }
   useEffect(() => {
     load();
-  }, []);
+  }, [liveVersion]);
+  useEffect(() => {
+    const source = new EventSource(
+      `${API}/events?token=${encodeURIComponent(session.token)}`,
+    );
+    source.addEventListener("request_update", () =>
+      setLiveVersion((version) => version + 1),
+    );
+    return () => source.close();
+  }, [session.token]);
   async function create(event) {
     event.preventDefault();
     setError("");
@@ -377,6 +387,7 @@ function ClientView({ session, reload }) {
 
 function OperatorView({ session }) {
   const [requests, setRequests] = useState([]);
+  const [liveVersion, setLiveVersion] = useState(0);
   const [episodes, setEpisodes] = useState([]);
   const [requestMeta, setRequestMeta] = useState({
     total: 0,
@@ -418,7 +429,16 @@ function OperatorView({ session }) {
   }
   useEffect(() => {
     load();
-  }, [requestPage, episodePage, filters.task_name, filters.quality]);
+  }, [requestPage, episodePage, filters.task_name, filters.quality, liveVersion]);
+  useEffect(() => {
+    const source = new EventSource(
+      `${API}/events?token=${encodeURIComponent(session.token)}`,
+    );
+    source.addEventListener("request_update", () =>
+      setLiveVersion((version) => version + 1),
+    );
+    return () => source.close();
+  }, [session.token]);
   async function status(id, value) {
     try {
       await request(`/requests/${id}/status?status=${value}`, {

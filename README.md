@@ -39,13 +39,3 @@ The analytics endpoint is `GET /analytics?start=2026-01-01&end=2027-01-01`. Its 
 
 See [NOTES.md](NOTES.md) for design, security, scale, and omitted work.
 
-## Deploy to Render
-
-The selected stretch item is **Deployment**. The repository includes [render.yaml](render.yaml), which defines separate Docker web services for the API and React frontend. The API uses a 1 GB persistent disk mounted at `/data` so the SQLite database survives service restarts. This requires a Render plan that supports persistent disks.
-
-1. Push the repository to GitHub or GitLab.
-2. In Render, choose **New > Blueprint** and connect the repository.
-3. Confirm the services from `render.yaml` and deploy.
-4. After Render creates the API service, update the frontend `VITE_API_URL` environment variable to the actual API URL if the service name differs from `fieldnote-api`.
-
-The seeded demo passwords are repository data for this exercise. For a real deployment, replace them, configure secrets in the Render dashboard rather than committing them, and move the database to managed PostgreSQL before scaling beyond a single persistent-disk instance. Render supplies HTTPS for both web services.
